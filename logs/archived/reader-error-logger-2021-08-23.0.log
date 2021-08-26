@@ -1,0 +1,1 @@
+2021-08-23 17:43:18,360 ERROR com.example.springbatchpoc.listener.ItemReaderFailureLoggerListener [restartedMain] An error occured while processing the 8 line of the file. == 8,Lavazza,Denmark,Strong,haha
