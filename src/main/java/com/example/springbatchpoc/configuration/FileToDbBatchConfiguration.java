@@ -1,14 +1,14 @@
 package com.example.springbatchpoc.configuration;
 
-import com.example.springbatchpoc.listener.CommonItemListener;
+import com.example.springbatchpoc.listener.ChunkLogListener;
 import com.example.springbatchpoc.listener.ItemProcessorFailureLoggerListener;
 import com.example.springbatchpoc.listener.ItemReaderFailureLoggerListener;
 import com.example.springbatchpoc.listener.ItemWriterFailureLoggerListener;
-import lombok.NonNull;
-import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.ItemProcessListener;
-import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.step.builder.SimpleStepBuilder;
 import org.springframework.batch.integration.async.AsyncItemProcessor;
 import org.springframework.batch.integration.async.AsyncItemWriter;
@@ -18,82 +18,87 @@ import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
-import org.springframework.batch.item.file.transform.LineTokenizer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.repository.CrudRepository;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+@Configuration
+@Slf4j
 public abstract class FileToDbBatchConfiguration<T> {
-
-    @Setter
-    @NonNull
-    private String inputFile;
-    @Setter
-    @NonNull
-    private Class type;
-    @Setter
-    @NonNull
-    private String[] names;
-    @Setter
-    @NonNull
-    private CrudRepository repository;
-    @Setter
-    @NonNull
-    private String methodName;
-    @Setter
-    private int chunkSize;
-
-
     @Autowired
     public StepBuilderFactory stepBuilderFactory;
 
-    @Bean
     public ItemReaderFailureLoggerListener itemReaderFailureLoggerListener(){
         return new ItemReaderFailureLoggerListener();
     }
 
-    @Bean
     public ItemProcessorFailureLoggerListener itemProcessorFailureLoggerListener(){
         return new ItemProcessorFailureLoggerListener();
     }
 
-    @Bean
     public ItemWriterFailureLoggerListener itemWriteFailureLoggerListener(){
         return new ItemWriterFailureLoggerListener();
     }
 
-    @Bean
-    public FlatFileItemReader flatFileItemReader(String fileInput, Class type, String[] names){
+    public ChunkLogListener chunkLogListener(){
+        return new ChunkLogListener();
+    }
+
+
+    public FlatFileItemReader flatFileItemReader(){
         return new FlatFileItemReaderBuilder<>()
                 .name("flatFileItemReader")
-                .resource(new FileSystemResource(fileInput))
+                .resource(resource(null))
                 .delimited()
-                .names(names)
+                .names(getColumnNames())
                 .fieldSetMapper(new BeanWrapperFieldSetMapper<>(){{
-                    setTargetType(type);
+                    setTargetType(getTargetType());
                 }})
                 .build();
     }
 
     @Bean
-    public RepositoryItemWriter repositoryItemWriter(CrudRepository repository, String methodName){
-        return new RepositoryItemWriterBuilder()
-                .repository(repository)
-                .methodName(methodName)
-                .build();
+    @StepScope
+    public Resource resource(@Value("#{jobParameters['inputFile']}") String inputFile){
+        return new FileSystemResource(inputFile);
     }
 
     @Bean
-    public AsyncItemWriter asyncItemWriter(CrudRepository repository, String methodName){
+    @StepScope
+    public Map chunkSize(@Value("#{jobParameters['chunkSize']}") long chunk){
+        Map params = new HashMap();
+        log.info("chunkSize:" + chunk);
+        params.put("chunkSize", Math.toIntExact(chunk));
+        return params;
+    }
+
+    public RepositoryItemWriter repositoryItemWriter(){
+        return new RepositoryItemWriterBuilder()
+                .repository(getWriterRepository())
+                .methodName(getWriterMethodName())
+                .build();
+    }
+
+    public AsyncItemWriter asyncItemWriter(){
         AsyncItemWriter writer = new AsyncItemWriter();
-        writer.setDelegate(repositoryItemWriter(repository, methodName));
+        writer.setDelegate(repositoryItemWriter());
         return writer;
     }
 
     public abstract ItemProcessor<T, T> itemProcessor();
+    public abstract Class getTargetType();
+    public abstract String[] getColumnNames();
+    public abstract CrudRepository getWriterRepository();
+    public abstract String getWriterMethodName();
 
-    @Bean
     public AsyncItemProcessor asyncItemProcessor(){
         AsyncItemProcessor processor = new AsyncItemProcessor();
         processor.setDelegate(itemProcessor());
@@ -102,30 +107,15 @@ public abstract class FileToDbBatchConfiguration<T> {
 
     public SimpleStepBuilder createBaseStep(){
         return (SimpleStepBuilder) stepBuilderFactory.get("step1")
-                .chunk(chunkSize)
-                .reader(flatFileItemReader(inputFile, type, names))
+                .chunk((Integer) chunkSize(0).get("chunkSize"))
+                .reader(flatFileItemReader())
                 .listener((ItemProcessListener<? super Object, ? super Object>) itemReaderFailureLoggerListener())
                 .processor(asyncItemProcessor())
                 .listener((ItemProcessListener) itemProcessorFailureLoggerListener())
-                .writer(asyncItemWriter(repository, methodName))
+                .writer(asyncItemWriter())
                 .listener((ItemProcessListener) itemWriteFailureLoggerListener())
                 .faultTolerant()
+                .listener(chunkLogListener())
                 .allowStartIfComplete(true);
     }
-
-    public Step createBaseStep(String stepName,
-                               int chunkSize,
-                               String fileInput,
-                               Class type,
-                               String[] names,
-                               CrudRepository repository,
-                               String method){
-        return (Step) stepBuilderFactory.get("step1")
-                .chunk(chunkSize)
-                .reader(flatFileItemReader(fileInput, type, names))
-                .processor(asyncItemProcessor())
-                .writer(asyncItemWriter(repository, method))
-                .faultTolerant();
-    }
-
 }
