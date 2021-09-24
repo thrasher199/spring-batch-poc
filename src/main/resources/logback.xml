@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <property name="LOGS" value="G:/playground/spring-batch-poc/logs" />
+    <property name="LOGS" value="E:/playground/spring-batch-poc-master/logs" />
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

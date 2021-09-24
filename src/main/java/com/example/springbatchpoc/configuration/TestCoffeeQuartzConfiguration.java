@@ -18,7 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 //@Configuration
-public class QuartzConfiguration {
+public class TestCoffeeQuartzConfiguration {
 
     @Autowired
     private JobLauncher jobLauncher;
@@ -41,7 +41,8 @@ public class QuartzConfiguration {
         jobDetailFactoryBean.setJobClass(QuartzJobLauncher.class);
 
         Map<String, Object> map = new HashMap<>();
-        map.put("jobName", "employeeAsyncJob");
+        map.put("jobName", "coffeeExtractJob");
+        map.put("inputFile", "E:/playground/spring-batch-input-file/coffee-list.csv");
         map.put("jobLauncher", jobLauncher);
         map.put("jobLocator", jobLocator);
 
@@ -55,7 +56,7 @@ public class QuartzConfiguration {
         CronTriggerFactoryBean cronTriggerFactoryBean = new CronTriggerFactoryBean();
         cronTriggerFactoryBean.setJobDetail(jobDetailFactoryBean().getObject());
         //run every 10 seconds
-        cronTriggerFactoryBean.setCronExpression("0 10 19 1/1 * ? *");
+        cronTriggerFactoryBean.setCronExpression("0 0/2 * 1/1 * ? *");
 
         return cronTriggerFactoryBean;
     }

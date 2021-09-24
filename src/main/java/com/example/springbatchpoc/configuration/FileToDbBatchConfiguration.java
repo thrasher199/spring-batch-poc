@@ -6,7 +6,6 @@ import com.example.springbatchpoc.listener.ItemReaderFailureLoggerListener;
 import com.example.springbatchpoc.listener.ItemWriterFailureLoggerListener;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.ItemProcessListener;
-import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.step.builder.SimpleStepBuilder;
@@ -18,21 +17,18 @@ import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
+import org.springframework.batch.repeat.CompletionPolicy;
+import org.springframework.batch.repeat.policy.SimpleCompletionPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.repository.CrudRepository;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
-@Configuration
 @Slf4j
 public abstract class FileToDbBatchConfiguration<T> {
+
     @Autowired
     public StepBuilderFactory stepBuilderFactory;
 
@@ -52,7 +48,7 @@ public abstract class FileToDbBatchConfiguration<T> {
         return new ChunkLogListener();
     }
 
-
+    @Bean
     public FlatFileItemReader flatFileItemReader(){
         return new FlatFileItemReaderBuilder<>()
                 .name("flatFileItemReader")
@@ -73,13 +69,11 @@ public abstract class FileToDbBatchConfiguration<T> {
 
     @Bean
     @StepScope
-    public Map chunkSize(@Value("#{jobParameters['chunkSize']}") long chunk){
-        Map params = new HashMap();
-        log.info("chunkSize:" + chunk);
-        params.put("chunkSize", Math.toIntExact(chunk));
-        return params;
+    public CompletionPolicy completionPolicy(@Value("#{jobParameters['chunkSize']}") long chunkSize){
+        return new SimpleCompletionPolicy(Math.toIntExact(chunkSize));
     }
 
+    @Bean
     public RepositoryItemWriter repositoryItemWriter(){
         return new RepositoryItemWriterBuilder()
                 .repository(getWriterRepository())
@@ -87,18 +81,22 @@ public abstract class FileToDbBatchConfiguration<T> {
                 .build();
     }
 
+    @Bean
     public AsyncItemWriter asyncItemWriter(){
         AsyncItemWriter writer = new AsyncItemWriter();
         writer.setDelegate(repositoryItemWriter());
         return writer;
     }
 
+    @Bean
     public abstract ItemProcessor<T, T> itemProcessor();
+
     public abstract Class getTargetType();
     public abstract String[] getColumnNames();
     public abstract CrudRepository getWriterRepository();
     public abstract String getWriterMethodName();
 
+    @Bean
     public AsyncItemProcessor asyncItemProcessor(){
         AsyncItemProcessor processor = new AsyncItemProcessor();
         processor.setDelegate(itemProcessor());
@@ -107,7 +105,7 @@ public abstract class FileToDbBatchConfiguration<T> {
 
     public SimpleStepBuilder createBaseStep(){
         return (SimpleStepBuilder) stepBuilderFactory.get("step1")
-                .chunk((Integer) chunkSize(0).get("chunkSize"))
+                .chunk(completionPolicy(0))
                 .reader(flatFileItemReader())
                 .listener((ItemProcessListener<? super Object, ? super Object>) itemReaderFailureLoggerListener())
                 .processor(asyncItemProcessor())

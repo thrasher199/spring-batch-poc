@@ -1,3 +1,4 @@
+/*
 package com.example.springbatchpoc.job;
 
 import com.example.springbatchpoc.domain.Employee;
@@ -145,3 +146,4 @@ public class EmployeeBatchJobMultiThread {
 
     }
 }
+*/

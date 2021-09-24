@@ -3,24 +3,23 @@ package com.example.springbatchpoc.job;
 import com.example.springbatchpoc.configuration.FileToDbBatchConfiguration;
 import com.example.springbatchpoc.domain.Employee;
 import com.example.springbatchpoc.repository.EmployeeRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.data.repository.CrudRepository;
 
-
-//@Configuration
+@Configuration
+@Lazy
+@Slf4j
 public class TestEmployee extends FileToDbBatchConfiguration {
-
-    @Value("${file.input.employee}")
-    private String fileInput;
-
     @Autowired
     public EmployeeRepository employeeRepository;
 
@@ -31,18 +30,19 @@ public class TestEmployee extends FileToDbBatchConfiguration {
     public ItemProcessor itemProcessor() {
         return (employee) -> {
             Thread.sleep(5);
+            log.info("Thread sleep");
             return employee;
         };
     }
 
-    @Bean
-    public Step step1(){
-        setChunkSize(1);
-        setInputFile(fileInput);
-        setType(Employee.class);
-        setRepository(employeeRepository);
-        setMethodName("save");
-        setNames(new String[]{"empId",
+    @Override
+    public Class getTargetType() {
+        return Employee.class;
+    }
+
+    @Override
+    public String[] getColumnNames() {
+        return new String[]{"empId",
                 "namePrefix",
                 "firstName",
                 "middleInitial",
@@ -78,17 +78,29 @@ public class TestEmployee extends FileToDbBatchConfiguration {
                 "zip",
                 "region",
                 "userName",
-                "password",});
+                "password"};
+    }
 
+    @Override
+    public CrudRepository getWriterRepository() {
+        return employeeRepository;
+    }
+
+    @Override
+    public String getWriterMethodName() {
+        return "save";
+    }
+
+    @Bean
+    public Step employeeStep(){
         return createBaseStep().build();
-
     }
 
     @Bean
     public Job employeeExtractJob(){
         return jobBuilderFactory.get("employeeExtractJob")
                 .incrementer(new RunIdIncrementer())
-                .flow(step1())
+                .flow(employeeStep())
                 .end().build();
     }
 }

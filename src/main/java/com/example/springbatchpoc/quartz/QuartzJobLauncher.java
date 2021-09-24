@@ -14,6 +14,8 @@ import org.springframework.scheduling.quartz.QuartzJobBean;
 
 public class QuartzJobLauncher extends QuartzJobBean {
     private String jobName;
+    private String inputFile;
+    private long chunkSize;
     private JobLauncher jobLauncher;
     private JobLocator jobLocator;
 
@@ -41,9 +43,31 @@ public class QuartzJobLauncher extends QuartzJobBean {
         this.jobLocator = jobLocator;
     }
 
+    public String getInputFile() {
+        return inputFile;
+    }
+
+    public void setInputFile(String inputFile) {
+        this.inputFile = inputFile;
+    }
+
+    public long getChunkSize() {
+        return chunkSize;
+    }
+
+    public void setChunkSize(long chunkSize) {
+        this.chunkSize = chunkSize;
+    }
+
     @Override
     protected void executeInternal(JobExecutionContext context) throws JobExecutionException {
-        JobParameters jobParameters = new JobParametersBuilder().addLong("time", System.currentTimeMillis()).toJobParameters();
+        JobParameters jobParameters = new JobParametersBuilder()
+                .addLong("time", System.currentTimeMillis())
+                .addString("inputFile", getInputFile())
+                .addLong("chunkSize", getChunkSize()).toJobParameters();
+
+
+        System.out.println("############# Job Name: " + jobName);
 
 
         try {

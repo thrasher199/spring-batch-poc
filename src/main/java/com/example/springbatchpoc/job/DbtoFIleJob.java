@@ -1,3 +1,4 @@
+/*
 package com.example.springbatchpoc.job;
 
 import com.example.springbatchpoc.configuration.DbToDbBatchConfiguration;
@@ -11,3 +12,4 @@ public class DbtoFIleJob extends DbToFileBatchConfiguration {
         return null;
     }
 }
+*/
