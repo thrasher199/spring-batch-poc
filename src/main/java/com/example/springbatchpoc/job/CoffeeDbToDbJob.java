@@ -42,7 +42,7 @@ public class CoffeeDbToDbJob extends DbToDbBatchConfiguration {
     }
 
     @Bean
-    public Step step1(){
+    public Step coffeeStockStep(){
         setPageSize(5);
         setReaderRepository(coffeeRepository);
         setReaderRepoMethodName("findAll");
@@ -50,14 +50,14 @@ public class CoffeeDbToDbJob extends DbToDbBatchConfiguration {
         setWriterRepoMethodName("save");
         setSorts(Collections.singletonMap("id", Sort.Direction.ASC));
 
-        return createBaseStep().build();
+        return createBaseStep("coffeeStockStep").build();
     }
 
-    @Bean(name = "coffeStockJob")
-    public Job coffeStockJob(){
-        return jobBuilderFactory.get("coffeStockJob")
+    @Bean
+    public Job coffeeStockJob(Step simpleStep){
+        return jobBuilderFactory.get("coffeeStockJob")
                 .incrementer(new RunIdIncrementer())
-                .flow(step1())
+                .flow(simpleStep)
                 .end().build();
     }
 

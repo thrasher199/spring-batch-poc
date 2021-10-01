@@ -4,13 +4,12 @@ import com.example.springbatchpoc.configuration.FileToDbBatchConfiguration;
 import com.example.springbatchpoc.domain.Employee;
 import com.example.springbatchpoc.repository.EmployeeRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.JobScope;
-import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -22,9 +21,6 @@ import org.springframework.data.repository.CrudRepository;
 public class TestEmployee extends FileToDbBatchConfiguration {
     @Autowired
     public EmployeeRepository employeeRepository;
-
-    @Autowired
-    public JobBuilderFactory jobBuilderFactory;
 
     @Override
     public ItemProcessor itemProcessor() {
@@ -92,15 +88,16 @@ public class TestEmployee extends FileToDbBatchConfiguration {
     }
 
     @Bean
+    @JobScope
     public Step employeeStep(){
-        return createBaseStep().build();
+        return createBaseStep("employeeStep").build();
     }
 
-    @Bean
-    public Job employeeExtractJob(){
+    /*@Bean
+    public Job employeeExtractJob(Step employeeStep){
         return jobBuilderFactory.get("employeeExtractJob")
                 .incrementer(new RunIdIncrementer())
-                .flow(employeeStep())
+                .flow(employeeStep)
                 .end().build();
-    }
+    }*/
 }
